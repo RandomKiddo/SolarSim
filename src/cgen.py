@@ -146,7 +146,7 @@ class DataPair:
 
 class CelestialBody:
     def __init__(self, m: float, r: float, a: float = 0.0, color: str = '000000',
-                 data: DataPair = None, e: float = 0.0) -> None:
+                 data: DataPair = None, e: float = 0.0, star: bool = False, label: str = '') -> None:
         """
         Initializes a new celestial body.
         :param m: The mass of the body.
@@ -155,12 +155,16 @@ class CelestialBody:
         :param color: The color of the body as a hex code (without #). Defaults to black (#000000).
         :param data: The data pairing of the body. Defaults to None.
         :param e: The eccentricity value e of the orbit. Defaults to 0.0
+        :param star: Boolean value representing if this body is a star. Defaults to False.
+        :param label: The name or label of the celestial body. Defaults to an empty str.
         """
         self.m = m
         self.r = r
         self.a = a
         self.color = color
         self.e = e
+        self.star = star
+        self.label = label
 
         if data is not None:
             self.data = data
@@ -196,19 +200,67 @@ class CelestialBody:
         return not __eq__(self, other)
 
     def pos(self) -> float:
+        """
+        Returns the current position of the celestial body based on Kepler's elliptical orbit formulae.
+        :return: The position float value (radially).
+        """
         return (self.a*(1-self.e**2))/(1+self.e*math.cos(self.data.position.theta_comp))
 
     def alpha(self, focus: Self, system: _TYPES = 'mks') -> float:
+        """
+        Returns the alpha value of the body with respect to a focus, G(m+M).
+        :param focus: The CelestialBody of focus.
+        :param system: The system of units to use. Defaults to 'mks'.
+        :return: The float alpha value.
+        """
         return Constants.G(system) * (self.m + focus.m)
 
     def mag_H(self) -> float:
+        """
+        Returns the magnitude of the H vector, defined as r x r dot (r cross r dot).
+        :return: The magnitude as a float.
+        """
         return self.data.position.mag_cross(self.data.velocity)
 
     def v_r(self, focus: Self, system: _TYPES = 'mks') -> float:
-        return 0.0
+        """
+        Returns the radial velocity at the current position.
+        :param focus: The CelestialBody focus of the system.
+        :param system: The system of units to use. Defaults to 'mks'
+        :return: The radial velocity as a float.
+        """
+        return (self.e*math.sin(self.data.position.theta_comp))*math.sqrt((self.alpha(focus, system)**2)/(self.mag_H()**2))
 
     def v_theta(self, focus: Self, system: _TYPES = 'mks') -> float:
-        return 0.0
+        """
+        Returns the tangential (theta) velocity at the current position.
+        :param focus: The CelestialBody focus of the system.
+        :param system: The system of units to use. Defaults to 'mks'/
+        :return: The theta velocity as a float.
+        """
+        return (1 + self.e * math.cos(self.data.position.theta_comp)) * math.sqrt(
+            (self.alpha(focus, system) ** 2) / (self.mag_H() ** 2))
+
+    def __add__(self, other: Self) -> Self:
+        """
+        Defines how to (loosely) add two celestial bodies. This method should only be used for effective bodies.
+        This defines a new celestial body of combined mass, no radius, and averaged semi-major axis.
+        :param other: The other celestial body to add.
+        :return: The new "added" celestial body.
+        """
+        a = (self.a + other.a) / 2
+        return CelestialBody(m=self.m+other.m, r=0.0, a=a, star=self.star)
+
+    def __iadd__(self, other: Self) -> None:
+        """
+        Defines how to (loosely) add two celestial bodies. This method should only be used for effective bodies.
+        This defines a new celestial body of combined mass, no radius, and averaged semi-major axis. Sets the current
+        celestial body to the "added" one.
+        :param other: The other celestial body to add.
+        """
+        self.a = (self.a + other.a) / 2
+        self.m += other.m
+        self.r = 0.0
 
 class System(Iterable):
     def __init__(self, bodies: List[CelestialBody] = None) -> None:
@@ -263,7 +315,8 @@ class System(Iterable):
             data = json.load(f)
             for _ in data:
                 body = data[_]
-                sys.append(CelestialBody(m=body['m'], r=body['r'], a=body['a'], color=body['color'], e=body['e']))
+                sys.append(CelestialBody(m=body['m'], r=body['r'], a=body['a'], color=body['color'],
+                                         e=body['e'], star=body['star'], label=str(_)))
         f.close()
         return sys
 
