@@ -6,3 +6,7 @@
 
 # Venv
 venv/
+
+# Python
+*.pyc
+*/__pycache__/
