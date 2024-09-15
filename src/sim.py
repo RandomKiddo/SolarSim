@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import warnings
 import argparse
 import os
+import numpy as np
 
 from cgen import *
 from collections import defaultdict
@@ -39,6 +40,8 @@ class Simulation:
 
         self.paths = defaultdict(lambda: [])
         self.ensure_naming_conventions()
+
+        self.dthetas = defaultdict(lambda: [])
 
     def ensure_naming_conventions(self) -> None:
         """
@@ -93,23 +96,49 @@ class Simulation:
         for _ in self.c_system:
             if not math.isclose(_.a, 0.0):
                 dtheta = _.data.velocity.theta_comp * dt
+                if len(self.dthetas[_.label]) != 0:
+                    avg = sum(self.dthetas[_.label]) / len(self.dthetas[_.label])
+                else:
+                    avg = 100  # arbitrary large value
+                if avg*2 < dtheta:  # check
+                    dtheta = avg
+                self.dthetas[_.label].append(dtheta)
                 _.data.position.theta_comp += dtheta
                 _.data.position.r_comp = _.pos()
                 _.data.velocity.r_comp = _.v_r(focus=self.eff_star(), system=self.system)
                 _.data.velocity.theta_comp = _.v_theta(focus=self.eff_star(), system=self.system)
 
-    def sim(self, dt: float = 0.01) -> None:
+    def sim(self, dt: float = 0.01, sp: str = None, compressed: bool = False) -> None:
         """
-        Runs the simulation.
+        Runs the simulation. Use a keyboard stroke in the terminal to interrupt.
+        :param dt: The differential time step to use. Defaults to 0.01.
+        :param sp: The string save path to save the .npz file. Defaults to None.
+        :param compressed: To use a compressed .npz file or not. Defaults to False.
         """
         if dt >= 0.01:
             warnings.warn(f'Differential time step dt relatively large at {dt}. Using large dt could yield lossy simulation results')
-        while True:
-            self.step(dt=dt)
-            self.draw()
-            plt.pause(0.0001)
-            self.ax.clear()
-            self.ax.axis('off')
+        try:
+            while True:
+                self.step(dt=dt)
+                self.draw()
+                plt.pause(0.0001)
+                self.ax.clear()
+                self.ax.axis('off')
+        except KeyboardInterrupt:
+            if sp is not None:
+                np_paths = np.array(self.paths)  # todo fix
+                if compressed:
+                    np.savez_compressed(sp, np_paths)
+                else:
+                    np.savez(sp, np_paths)
+
+    @staticmethod
+    def plot_from_npz(fp: str) -> None:
+        if not os.path.exists(fp):
+            raise FileNotFoundError(f'Could not find .npz file {fp}')
+        with np.load(fp) as data:
+            for _ in data:
+                pass  # todo finish
 
 
 if __name__ == '__main__':
@@ -121,12 +150,15 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--pause', type=float, action='store', default=0.0001,
                         help='amount of time to pause the simulation before updating')
     parser.add_argument('--fp', type=str, action='store', default=None, help='the filepath to a json file representing the system')
+    parser.add_argument('--sp', type=str, action='store', default=None, help='the path to save the simulation paths as an npz file')
+    parser.add_argument('-c', '--compressed', action='store_true', default=False, help='if the npz file should be compressed')
+    parser.add_argument('-z', '--zoom', type=float, action='store', default=0.0, help='the zoom factor to zoom-in by')
 
     args = parser.parse_args()
 
     if args.solar:
         sim = Simulation(c_system=System(), system=args.units)
-    if args.fp is not None and os.path.exists(args.fp):
+    elif args.fp is not None and os.path.exists(args.fp):
         sim = Simulation(c_system=System.read_from_json(args.fp), system=args.units)
     elif args.fp is None:
         warnings.warn('Solar system argument not specified, yet no filepath was provided. Defaulting to solar system.')
@@ -135,4 +167,4 @@ if __name__ == '__main__':
         warnings.warn(f'Provided filepath {args.fp} could not be located. Defaulting to solar system.')
         sim = Simulation(c_system=System(), system=args.units)
 
-    sim.sim(dt=args.dt)
+    sim.sim(dt=args.dt, sp=args.sp, compressed=args.compressed)
