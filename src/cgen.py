@@ -1,3 +1,9 @@
+"""
+This file is licensed by the GNU GPLv3 License
+Copyright © 2024 RandomKiddo
+"""
+
+
 import warnings
 import math
 import json
@@ -19,7 +25,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for G')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for G')
         if system == 'mks' or system not in options:
             return 6.6743015e-11
         elif system == 'cgs':
@@ -36,7 +42,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for solar_mass')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for solar_mass')
         if system == 'mks' or system not in options:
             return 1.9885e30
         elif system == 'cgs':
@@ -53,7 +59,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for solar_radius')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for solar_radius')
         if system == 'mks' or system not in options:
             return 6.957e8
         elif system == 'cgs':
@@ -70,7 +76,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for earth__mass')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for earth__mass')
         if system == 'mks' or system not in options:
             return 5.972168e24
         elif system == 'cgs':
@@ -87,7 +93,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for earth_radius')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for earth_radius')
         if system == 'mks' or system not in options:
             return 6378.137
         elif system == 'cgs':
@@ -104,7 +110,7 @@ class Constants:
         """
         options = get_args(_TYPES)
         if system not in options:
-            warnings.warn(f'{system} not a recognized for of unit system, defaulting to MKS for au')
+            warnings.warn(f'{system} not a recognized form of unit system, defaulting to MKS for au')
         if system == 'mks' or system not in options:
             return 1.495979e11
         elif system == 'cgs':
@@ -319,4 +325,22 @@ class System(Iterable):
                                          e=body['e'], star=body['star'], label=str(_)))
         f.close()
         return sys
+
+    @staticmethod
+    def read_from_json(fp: str):
+        """
+        Creates a system instance of celestial bodies from a given JSON file.
+        :param fp: The file path to the JSON file.
+        :return: The system instance of bodies.
+        """
+        sys = []
+        with open(fp, 'r') as f:
+            data = json.load(f)
+            for _ in data:
+                body = data[_]
+                sys.append(CelestialBody(m=body.get('m', 0.0), r=body.get('r', 0.0), a=body.get('a', 0.0),
+                                         color=body.get('color', '000000'), e=body.get('e', 0.0), star=body.get('star', False),
+                                         label=str(_)))
+        f.close()
+        return System(bodies=sys)
 

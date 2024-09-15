@@ -1,6 +1,12 @@
-import numpy as np
+"""
+This file is licensed by the GNU GPLv3 License
+Copyright © 2024 RandomKiddo
+"""
+
 import matplotlib.pyplot as plt
-import scipy
+import warnings
+import argparse
+import os
 
 from cgen import *
 from collections import defaultdict
@@ -92,18 +98,41 @@ class Simulation:
                 _.data.velocity.r_comp = _.v_r(focus=self.eff_star(), system=self.system)
                 _.data.velocity.theta_comp = _.v_theta(focus=self.eff_star(), system=self.system)
 
-    def sim(self) -> None:
+    def sim(self, dt: float = 0.01) -> None:
         """
         Runs the simulation.
         """
+        if dt >= 0.01:
+            warnings.warn(f'Differential time step dt relatively large at {dt}. Using large dt could yield lossy simulation results')
         while True:
-            self.step()
+            self.step(dt=dt)
             self.draw()
-            plt.pause(0.00001)
+            plt.pause(0.0001)
             self.ax.clear()
-            # self.ax.axis('off')
+            self.ax.axis('off')
 
 
 if __name__ == '__main__':
-    sim = Simulation(c_system=System(), system='au')
-    sim.sim()
+    parser = argparse.ArgumentParser(prog='SolarSim', description='A python-based celestial body system simulator')
+    parser.add_argument('--dt', type=float, action='store',
+                        default=0.01, help='differential time step to use in the simulation')
+    parser.add_argument('-u', '--units', type=str, action='store', default='mks', help='system of units to use for the simulation')
+    parser.add_argument('-s', '--solar', action='store_true', default=False, help='use the solar system for the simulation')
+    parser.add_argument('-p', '--pause', type=float, action='store', default=0.0001,
+                        help='amount of time to pause the simulation before updating')
+    parser.add_argument('--fp', type=str, action='store', default=None, help='the filepath to a json file representing the system')
+
+    args = parser.parse_args()
+
+    if args.solar:
+        sim = Simulation(c_system=System(), system=args.units)
+    if args.fp is not None and os.path.exists(args.fp):
+        sim = Simulation(c_system=System.read_from_json(args.fp), system=args.units)
+    elif args.fp is None:
+        warnings.warn('Solar system argument not specified, yet no filepath was provided. Defaulting to solar system.')
+        sim = Simulation(c_system=System(), system=args.units)
+    else:  # file doesn't exist
+        warnings.warn(f'Provided filepath {args.fp} could not be located. Defaulting to solar system.')
+        sim = Simulation(c_system=System(), system=args.units)
+
+    sim.sim(dt=args.dt)
