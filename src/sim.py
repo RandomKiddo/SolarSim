@@ -18,11 +18,12 @@ SCALE_FACTORS = {'au': 100_000}
 
 
 class Simulation:
-    def __init__(self, c_system: System, system: _TYPES = 'mks'):
+    def __init__(self, c_system: System, system: _TYPES = 'mks', cutoff: float = 0.0):
         """
         Initializes a new simulation.
         :param c_system: The celestial system to use.
         :param system: The system of units to use. Defaults to 'mks'.
+        :param cutoff: The cutoff distance to not include in simulation.
         """
         self.c_system = c_system
         self.system = system
@@ -42,6 +43,13 @@ class Simulation:
         self.ensure_naming_conventions()
 
         self.dthetas = defaultdict(lambda: [])
+
+        if cutoff > 0.0:
+            copy = []
+            for _ in self.c_system:
+                if _.a <= cutoff:
+                    copy.append(_)
+            self.c_system = System(copy)
 
     def ensure_naming_conventions(self) -> None:
         """
@@ -95,12 +103,15 @@ class Simulation:
         """
         for _ in self.c_system:
             if not math.isclose(_.a, 0.0):
-                dtheta = _.data.velocity.theta_comp * dt
+                v_perihelion = math.sqrt(Constants.G(self.system) * self.eff_star().m * (1 / _.a) * ((1 + _.e) / (1 - _.e)))
                 if len(self.dthetas[_.label]) != 0:
                     avg = sum(self.dthetas[_.label]) / len(self.dthetas[_.label])
                 else:
                     avg = 100  # arbitrary large value
-                if avg*2 < dtheta:  # check
+                if _.data.velocity.theta_comp > v_perihelion:
+                    _.data.velocity.theta_comp = v_perihelion
+                dtheta = _.data.velocity.theta_comp * dt
+                if dtheta > avg*2:  # todo fix, broken for Mercury and alike
                     dtheta = avg
                 self.dthetas[_.label].append(dtheta)
                 _.data.position.theta_comp += dtheta
@@ -115,7 +126,7 @@ class Simulation:
         :param sp: The string save path to save the .npz file. Defaults to None.
         :param compressed: To use a compressed .npz file or not. Defaults to False.
         """
-        if dt >= 0.01:
+        if dt > 0.01:
             warnings.warn(f'Differential time step dt relatively large at {dt}. Using large dt could yield lossy simulation results')
         try:
             while True:
@@ -152,19 +163,27 @@ if __name__ == '__main__':
     parser.add_argument('--fp', type=str, action='store', default=None, help='the filepath to a json file representing the system')
     parser.add_argument('--sp', type=str, action='store', default=None, help='the path to save the simulation paths as an npz file')
     parser.add_argument('-c', '--compressed', action='store_true', default=False, help='if the npz file should be compressed')
-    parser.add_argument('-z', '--zoom', type=float, action='store', default=0.0, help='the zoom factor to zoom-in by')
+    parser.add_argument('-cut', '--cutoff', type=float, action='store', default=0.0, help='the zoom factor to zoom-in by')  # todo
+    parser.add_argument('-g', '--gif', type=str, action='store', default=None, help='store the simulation as a gif with the provided filepath')
 
     args = parser.parse_args()
 
     if args.solar:
-        sim = Simulation(c_system=System(), system=args.units)
+        sim = Simulation(c_system=System(), system=args.units, cutoff=args.cutoff)
     elif args.fp is not None and os.path.exists(args.fp):
-        sim = Simulation(c_system=System.read_from_json(args.fp), system=args.units)
+        sim = Simulation(c_system=System.read_from_json(args.fp), system=args.units, cutoff=args.cutoff)
     elif args.fp is None:
         warnings.warn('Solar system argument not specified, yet no filepath was provided. Defaulting to solar system.')
-        sim = Simulation(c_system=System(), system=args.units)
+        sim = Simulation(c_system=System(), system=args.units, cutoff=args.cutoff)
     else:  # file doesn't exist
         warnings.warn(f'Provided filepath {args.fp} could not be located. Defaulting to solar system.')
-        sim = Simulation(c_system=System(), system=args.units)
+        sim = Simulation(c_system=System(), system=args.units, cutoff=args.cutoff)
+
+    if args.gif is not None:
+        warnings.warn('Gif functionality not currently integrated-- will be added in next update')
+    if args.compressed:
+        warnings.warn('Compressed functionality not currently integrated-- will be added in next update')
+    if args.sp is not None:
+        warnings.warn('Save-path functionality not currently integrated-- will be added in next update')
 
     sim.sim(dt=args.dt, sp=args.sp, compressed=args.compressed)
