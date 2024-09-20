@@ -193,8 +193,6 @@ if __name__ == '__main__':
                         default=0.01, help='differential time step to use in the simulation')
     parser.add_argument('-u', '--units', type=str, action='store', default='mks', help='system of units to use for the simulation')
     parser.add_argument('-s', '--solar', action='store_true', default=False, help='use the solar system for the simulation')
-    parser.add_argument('-p', '--pause', type=float, action='store', default=0.0001,
-                        help='amount of time to pause the simulation before updating')
     parser.add_argument('--fp', type=str, action='store', default=None, help='the filepath to a json file representing the system')
     parser.add_argument('--sp', type=str, action='store', default=None, help='the path to save the simulation paths as a csv file')
     parser.add_argument('-cut', '--cutoff', type=float, action='store', default=0.0, help='the zoom factor to zoom-in by')  # todo
