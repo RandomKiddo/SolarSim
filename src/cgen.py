@@ -276,6 +276,7 @@ class System(Iterable):
         """
         if bodies is None:
             bodies = System.solar_system()
+            warnings.warn('Bodies passed into constructor has a value of None. Defaulting to the solar system.')
 
         self.bodies = bodies
 

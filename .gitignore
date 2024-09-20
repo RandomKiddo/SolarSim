@@ -10,3 +10,7 @@ venv/
 # Python
 *.pyc
 */__pycache__/
+
+# Testing
+*/test.json
+*/*.csv
